@@ -20,7 +20,8 @@ WHL_PATH = f"./{ADDON_NAME}/wheels"
 
 # Instead of reading from pyproject.toml, define the required packages here:
 required_packages = [
-    "Pillow", # TO CHANGE
+    "Pillow",
+    "OpenEXR",
     # Add any other required packages here
 ]
 def run_python(args: str | List[str]):
@@ -101,11 +102,9 @@ def update_toml_whls(platforms):
 
     # Packages to remove
     packages_to_remove = {
-        "pyarrow",
         "certifi",
         "charset_normalizer",
         "idna",
-        "numpy",
         "requests",
         "urllib3",
     }

@@ -3,6 +3,9 @@ from bpy.props import FloatProperty
 from bpy.types import Operator
 from PIL import Image, ImageFilter
 import os
+import OpenEXR
+import Imath
+import numpy as np
 
 class NODE_OT_blur_env_image(bpy.types.Operator):
     bl_idname = "node.blur_env_image"
@@ -51,11 +54,58 @@ class NODE_OT_blur_env_image(bpy.types.Operator):
 
         img_path = bpy.path.abspath(node.image.filepath)
         try:
-            img = Image.open(img_path)
-            blurred = img.filter(ImageFilter.GaussianBlur(radius=self.radius))
-            base, ext = os.path.splitext(img_path)
-            blurred_path = base + "_blurred" + ext
-            blurred.save(blurred_path)
+            # Check if the file is an EXR file
+            if img_path.lower().endswith('.exr'):
+                # Handle EXR files with OpenEXR
+                exr_file = OpenEXR.InputFile(img_path)
+                header = exr_file.header()
+                dw = header['dataWindow']
+                width = dw.max.x - dw.min.x + 1
+                height = dw.max.y - dw.min.y + 1
+                
+                # Read all channels
+                channels = header['channels'].keys()
+                channel_data = {}
+                
+                for channel in channels:
+                    channel_str = exr_file.channel(channel, Imath.PixelType(Imath.PixelType.FLOAT))
+                    channel_array = np.frombuffer(channel_str, dtype=np.float32)
+                    channel_array = channel_array.reshape((height, width))
+                    channel_data[channel] = channel_array
+                
+                exr_file.close()
+                
+                # Apply blur to each channel using numpy convolution instead of PIL
+                blurred_channels = {}
+                for channel, data in channel_data.items():
+                    # Use scipy's gaussian filter for better HDR handling
+                    from scipy.ndimage import gaussian_filter
+                    blurred_data = gaussian_filter(data, sigma=self.radius)
+                    blurred_channels[channel] = blurred_data
+                
+                # Save blurred EXR
+                base, ext = os.path.splitext(img_path)
+                blurred_path = base + "_blurred" + ext
+                
+                # Create output EXR file with proper channel writing
+                out_exr = OpenEXR.OutputFile(blurred_path, header)
+                
+                # Prepare all channel data for writing
+                channel_pixels = {}
+                for channel, data in blurred_channels.items():
+                    channel_pixels[channel] = data.astype(np.float32).tobytes()
+                
+                # Write all channels at once
+                out_exr.writePixels(channel_pixels)
+                out_exr.close()
+                
+            else:
+                # Handle regular image files with PIL
+                img = Image.open(img_path)
+                blurred = img.filter(ImageFilter.GaussianBlur(radius=self.radius))
+                base, ext = os.path.splitext(img_path)
+                blurred_path = base + "_blurred" + ext
+                blurred.save(blurred_path)
 
             # Create a new image node of the same type as the original
             if node.bl_idname == 'ShaderNodeTexImage':
