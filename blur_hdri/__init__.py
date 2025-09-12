@@ -4,8 +4,6 @@ from bpy.types import Operator
 from PIL import Image, ImageFilter
 import os
 import numpy as np
-
-# For EXR support
 import OpenEXR, Imath
 
 
@@ -57,13 +55,15 @@ class NODE_OT_blur_env_image(Operator):
                 # --- Handle EXR ---
                 blurred_img = self.process_exr(img_path, self.radius, is_env=(node.bl_idname == 'ShaderNodeTexEnvironment'))
 
-                # Save EXR
-                out_header = OpenEXR.InputFile(img_path).header()
-                out_file = OpenEXR.OutputFile(blurred_path, out_header)
+                # Save EXR with RGBA
+                exr_file = OpenEXR.InputFile(img_path)
+                header = exr_file.header()
+                out_file = OpenEXR.OutputFile(blurred_path, header)
                 out_file.writePixels({
                     'R': blurred_img[:, :, 0].astype(np.float32).tobytes(),
                     'G': blurred_img[:, :, 1].astype(np.float32).tobytes(),
                     'B': blurred_img[:, :, 2].astype(np.float32).tobytes(),
+                    'A': blurred_img[:, :, 3].astype(np.float32).tobytes(),
                 })
                 out_file.close()
 
@@ -108,10 +108,18 @@ class NODE_OT_blur_env_image(Operator):
         height = dw.max.y - dw.min.y + 1
         FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
 
+        # Read RGB channels
         red = np.frombuffer(exr_file.channel('R', FLOAT), dtype=np.float32).reshape((height, width))
         green = np.frombuffer(exr_file.channel('G', FLOAT), dtype=np.float32).reshape((height, width))
         blue = np.frombuffer(exr_file.channel('B', FLOAT), dtype=np.float32).reshape((height, width))
-        img = np.stack([red, green, blue], axis=2)
+
+        # Check if alpha exists
+        if "A" in header['channels']:
+            alpha = np.frombuffer(exr_file.channel('A', FLOAT), dtype=np.float32).reshape((height, width))
+        else:
+            alpha = np.ones((height, width), dtype=np.float32)
+
+        img = np.stack([red, green, blue, alpha], axis=2)
 
         # Convert to 8-bit for Pillow
         img_uint8 = np.clip(img, 0, 1) * 255
@@ -131,7 +139,7 @@ class NODE_OT_blur_env_image(Operator):
         if is_env:
             blurred_np = blurred_np[:, pad:-pad]
 
-        # Convert back to float
+        # Convert back to float [0,1]
         return blurred_np.astype(np.float32) / 255.0
 
     # --- Helper for non-EXR env textures ---
