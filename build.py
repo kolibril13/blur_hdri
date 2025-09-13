@@ -22,7 +22,7 @@ WHL_PATH = f"./{ADDON_NAME}/wheels"
 required_packages = [
     "Pillow",
     "OpenEXR",
-    "numpy<=2.0",
+    "numpy<2.0",
     # Add any other required packages here
 ]
 
