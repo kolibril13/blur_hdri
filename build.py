@@ -22,8 +22,10 @@ WHL_PATH = f"./{ADDON_NAME}/wheels"
 required_packages = [
     "Pillow",
     "OpenEXR",
+    "numpy<=2.0",
     # Add any other required packages here
 ]
+
 def run_python(args: str | List[str]):
     python = os.path.realpath(sys.executable)
 
