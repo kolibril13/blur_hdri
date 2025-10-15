@@ -6,7 +6,7 @@ import os
 import numpy as np
 import OpenEXR, Imath
 
-
+# --- Operator ---
 class NODE_OT_blur_env_image(Operator):
     bl_idname = "node.blur_env_image"
     bl_label = "Blur Image Node"
@@ -157,6 +157,18 @@ class NODE_OT_blur_env_image(Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
+# --- Right-click Context Menu Integration ---
+def draw_blur_menu(self, context):
+    # Only show for ShaderNodeTexImage or ShaderNodeTexEnvironment nodes
+    selected_nodes = [n for n in context.space_data.node_tree.nodes if n.select]
+    if not selected_nodes:
+        return
+    node = selected_nodes[0]
+    if node.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeTexEnvironment'}:
+        self.layout.separator()
+        op = self.layout.operator(NODE_OT_blur_env_image.bl_idname, text="Blur...", icon='IMAGE')
+        # Pass current default radius
+        op.radius = getattr(context.window_manager, 'blur_env_radius', NODE_OT_blur_env_image.radius.default)
 
 class NODE_PT_blur_env_panel(bpy.types.Panel):
     """N-side panel for the Blur Env Image operator"""
@@ -181,17 +193,21 @@ class NODE_PT_blur_env_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         col = layout.column()
-
-        # Show the operator with its properties (radius)
         op = col.operator(NODE_OT_blur_env_image.bl_idname, text="Blur Image from selected node")
         op.radius = getattr(context.window_manager, 'blur_env_radius', NODE_OT_blur_env_image.radius.default)
 
+classes = (
+    NODE_OT_blur_env_image,
+    NODE_PT_blur_env_panel,
+)
 
 def register():
-    bpy.utils.register_class(NODE_OT_blur_env_image)
-    bpy.utils.register_class(NODE_PT_blur_env_panel)
-
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    # Menu for node editor's context menu
+    bpy.types.NODE_MT_context_menu.append(draw_blur_menu)
 
 def unregister():
-    bpy.utils.unregister_class(NODE_OT_blur_env_image)
-    bpy.utils.unregister_class(NODE_PT_blur_env_panel)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    bpy.types.NODE_MT_context_menu.remove(draw_blur_menu)
