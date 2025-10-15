@@ -158,9 +158,40 @@ class NODE_OT_blur_env_image(Operator):
         return context.window_manager.invoke_props_dialog(self)
 
 
+class NODE_PT_blur_env_panel(bpy.types.Panel):
+    """N-side panel for the Blur Env Image operator"""
+    bl_label = "Blur HDRI"
+    bl_idname = "NODE_PT_blur_env_panel"
+    bl_space_type = 'NODE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = 'Blur'
+
+    @classmethod
+    def poll(cls, context):
+        # Show panel only when a node tree is available (material/world/node editor)
+        space = context.space_data
+        if space and hasattr(space, "node_tree") and space.node_tree:
+            return True
+        if context.object and getattr(context.object, 'active_material', None) and context.object.active_material.use_nodes:
+            return True
+        if context.scene and getattr(context.scene, 'world', None) and context.scene.world and context.scene.world.node_tree:
+            return True
+        return False
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        # Show the operator with its properties (radius)
+        op = col.operator(NODE_OT_blur_env_image.bl_idname, text="Blur Image from selected node")
+        op.radius = getattr(context.window_manager, 'blur_env_radius', NODE_OT_blur_env_image.radius.default)
+
+
 def register():
     bpy.utils.register_class(NODE_OT_blur_env_image)
+    bpy.utils.register_class(NODE_PT_blur_env_panel)
 
 
 def unregister():
     bpy.utils.unregister_class(NODE_OT_blur_env_image)
+    bpy.utils.unregister_class(NODE_PT_blur_env_panel)
