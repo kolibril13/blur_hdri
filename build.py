@@ -22,7 +22,7 @@ WHL_PATH = f"./{ADDON_NAME}/wheels"
 required_packages = [
     "Pillow",
     "OpenEXR",
-    "numpy<2.0",
+    "numpy",
     # Add any other required packages here
 ]
 
@@ -80,7 +80,7 @@ def remove_whls():
 def download_whls(
     platforms: Union[Platform, List[Platform]],
     required_packages: List[str] = required_packages,
-    python_version="3.11",
+    python_version = "3.13",
     clean: bool = True,
 ):
     if isinstance(platforms, Platform):
@@ -102,9 +102,11 @@ def update_toml_whls(platforms):
 
     # Packages to remove
     packages_to_remove = {
+        "pyarrow",
         "certifi",
         "charset_normalizer",
         "idna",
+        "numpy",
         "requests",
         "urllib3",
     }
