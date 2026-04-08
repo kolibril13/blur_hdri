@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "blur_hdri"  # TO CHANGE
-version = "0.0.7"
+version = "0.0.8"
 name = "Blur HDRI" # TO CHANGE
 tagline = "Blur HDRI Images by creating a new node with a Gaussian Blur" # TO CHANGE
 maintainer = "Jan-Hendrik Müller<jan-hendrik.mueller@uni-goettingen.de>"
@@ -23,7 +23,7 @@ tags = [  # TO CHANGE
 	"Material",
 	"Lighting",
 ]
-blender_version_min = "5.1"
+blender_version_min = "5.1.0"
 
 copyright = [
 	"2025 Jan-Hendrik Müller", # TO CHANGE
