@@ -4,7 +4,7 @@ from bpy.types import Operator
 from PIL import Image, ImageFilter
 import os
 import numpy as np
-import OpenEXR, Imath
+import OpenEXR
 
 # --- Operator ---
 class NODE_OT_blur_env_image(Operator):
@@ -59,25 +59,15 @@ class NODE_OT_blur_env_image(Operator):
         try:
             if ext.lower() == ".exr":
                 # --- Handle EXR ---
-                blurred_img = self.process_exr(
+                blurred_img, header = self.process_exr(
                     img_path,
                     self.radius,
                     is_env=(node.bl_idname == "ShaderNodeTexEnvironment"),
                 )
 
-                # Save EXR with RGBA
-                exr_file = OpenEXR.InputFile(img_path)
-                header = exr_file.header()
-                out_file = OpenEXR.OutputFile(blurred_path, header)
-                out_file.writePixels(
-                    {
-                        "R": blurred_img[:, :, 0].astype(np.float32).tobytes(),
-                        "G": blurred_img[:, :, 1].astype(np.float32).tobytes(),
-                        "B": blurred_img[:, :, 2].astype(np.float32).tobytes(),
-                        "A": blurred_img[:, :, 3].astype(np.float32).tobytes(),
-                    }
-                )
-                out_file.close()
+                # Save EXR with RGBA, reusing the source header to keep metadata
+                with OpenEXR.File(header, {"RGBA": blurred_img.astype(np.float32)}) as out_file:
+                    out_file.write(blurred_path)
 
                 new_image = bpy.data.images.load(blurred_path)
 
@@ -113,33 +103,28 @@ class NODE_OT_blur_env_image(Operator):
 
     # --- Helper for EXR processing ---
     def process_exr(self, path, radius, is_env):
-        exr_file = OpenEXR.InputFile(path)
-        header = exr_file.header()
-        dw = header["dataWindow"]
-        width = dw.max.x - dw.min.x + 1
-        height = dw.max.y - dw.min.y + 1
-        FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
+        # Modern OpenEXR API: channels are returned as numpy arrays, with
+        # RGB/RGBA grouped under a single key. No Imath dependency needed.
+        with OpenEXR.File(path) as exr_file:
+            header = exr_file.header()
+            channels = exr_file.channels()
 
-        # Read RGB channels
-        red = np.frombuffer(exr_file.channel("R", FLOAT), dtype=np.float32).reshape(
-            (height, width)
-        )
-        green = np.frombuffer(exr_file.channel("G", FLOAT), dtype=np.float32).reshape(
-            (height, width)
-        )
-        blue = np.frombuffer(exr_file.channel("B", FLOAT), dtype=np.float32).reshape(
-            (height, width)
-        )
-
-        # Check if alpha exists
-        if "A" in header["channels"]:
-            alpha = np.frombuffer(
-                exr_file.channel("A", FLOAT), dtype=np.float32
-            ).reshape((height, width))
-        else:
-            alpha = np.ones((height, width), dtype=np.float32)
-
-        img = np.stack([red, green, blue, alpha], axis=2)
+            if "RGBA" in channels:
+                img = channels["RGBA"].pixels.astype(np.float32)
+            elif "RGB" in channels:
+                rgb = channels["RGB"].pixels.astype(np.float32)
+                alpha = np.ones(rgb.shape[:2] + (1,), dtype=np.float32)
+                img = np.concatenate([rgb, alpha], axis=2)
+            else:
+                # Fall back to individual channels
+                red = channels["R"].pixels.astype(np.float32)
+                green = channels["G"].pixels.astype(np.float32)
+                blue = channels["B"].pixels.astype(np.float32)
+                if "A" in channels:
+                    alpha = channels["A"].pixels.astype(np.float32)
+                else:
+                    alpha = np.ones_like(red)
+                img = np.stack([red, green, blue, alpha], axis=2)
 
         # Convert to 8-bit for Pillow
         img_uint8 = np.clip(img, 0, 1) * 255
@@ -160,7 +145,7 @@ class NODE_OT_blur_env_image(Operator):
             blurred_np = blurred_np[:, pad:-pad]
 
         # Convert back to float [0,1]
-        return blurred_np.astype(np.float32) / 255.0
+        return blurred_np.astype(np.float32) / 255.0, header
 
     # --- Helper for non-EXR env textures ---
     def pad_and_blur(self, img, radius):

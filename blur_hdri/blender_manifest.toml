@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "blur_hdri"  # TO CHANGE
-version = "0.0.8"
+version = "0.0.9"
 name = "Blur HDRI" # TO CHANGE
 tagline = "Blur HDRI Images by creating a new node with a Gaussian Blur" # TO CHANGE
 maintainer = "Jan-Hendrik Müller<jan-hendrik.mueller@uni-goettingen.de>"
@@ -47,4 +47,7 @@ paths_exclude_pattern = [
 	".gitignore",    # Exclude gitignore
 	"*.zip",         # Exclude *.zip
 	"*__pycache__/", # Exclude /__pycache__ folder
+	"just_testing.py", # Exclude local testing script
+	"*_testing.py",  # Exclude any testing scripts
+	"*_test.py",     # Exclude any test scripts
 ]
