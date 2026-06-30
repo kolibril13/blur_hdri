@@ -47,7 +47,6 @@ paths_exclude_pattern = [
 	".gitignore",    # Exclude gitignore
 	"*.zip",         # Exclude *.zip
 	"*__pycache__/", # Exclude /__pycache__ folder
-	"just_testing.py", # Exclude local testing script
 	"*_testing.py",  # Exclude any testing scripts
 	"*_test.py",     # Exclude any test scripts
 ]
